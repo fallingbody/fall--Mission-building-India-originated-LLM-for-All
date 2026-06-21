@@ -20,12 +20,21 @@ class AsyncCheckpointer:
 
     def save(self, step):
         """Synchronous save (for critical checkpoints)."""
-        state = {
-            "model": get_model_state_dict(self.model),
-            "optimizer": get_optimizer_state_dict(self.model, self.optimizer),
-            "step": torch.tensor(step),
-        }
-        dcp.save(state, checkpoint_id=f"step_{step}", storage_writer=self._get_storage())
+        if dist.is_initialized():
+            state = {
+                "model": get_model_state_dict(self.model),
+                "optimizer": get_optimizer_state_dict(self.model, self.optimizer),
+                "step": torch.tensor(step),
+            }
+            dcp.save(state, checkpoint_id=f"step_{step}", storage_writer=self._get_storage())
+        else:
+            state = {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "step": step,
+            }
+            checkpoint_path = os.path.join(self.save_dir, f"step_{step}.pt")
+            torch.save(state, checkpoint_path)
 
     def _get_storage(self):
         from torch.distributed.checkpoint import FileSystemReader, FileSystemWriter
