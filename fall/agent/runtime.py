@@ -128,3 +128,6 @@ class FALLAutonomousAgent:
     async def _vigilant_rest(self, duration: float):
         """Rest while staying alert."""
         await asyncio.sleep(duration)
+
+async def main():
+    pass
