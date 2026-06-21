@@ -39,5 +39,5 @@ def create_optimizer(model, config):
         betas=(0.9, 0.95),
         eps=1e-8,
         weight_decay=0.1,
-        fused=True  # CUDA fused kernel for speed
+        fused=False  # Disabled because FNO uses complex64 which isn't supported by fused kernel
     )
