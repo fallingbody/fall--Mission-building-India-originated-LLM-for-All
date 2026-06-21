@@ -21,6 +21,7 @@ API_KEYS = {
     "sk-defender-abc": {"role": "defender", "rate_limit": 100, "name": "Blue Team Alpha"},
     "sk-pentest-xyz": {"role": "pentester", "rate_limit": 50, "name": "Red Team Beta"},
     "sk-admin-full": {"role": "admin", "rate_limit": 1000, "name": "System Administrator"},
+    "sk-local-dev": {"role": "admin", "rate_limit": 1000, "name": "Local Development"},
 }
 
 # Tool schemas
