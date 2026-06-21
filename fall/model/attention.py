@@ -115,17 +115,17 @@ class HyperbolicAttention(nn.Module):
 
     def forward(self, x, mask=None):
         B, L, D = x.shape
-        q = self.q_proj(x).view(B, L, self.n_heads, self.d_head)
-        k = self.k_proj(x).view(B, L, self.n_heads, self.d_head)
-        v = self.v_proj(x).view(B, L, self.n_heads, self.d_head)
+        q = self.q_proj(x).view(B, L, self.n_heads, self.d_head).transpose(1, 2) # (B, h, L, d)
+        k = self.k_proj(x).view(B, L, self.n_heads, self.d_head).transpose(1, 2)
+        v = self.v_proj(x).view(B, L, self.n_heads, self.d_head).transpose(1, 2)
         # Exponential map to Poincaré ball
         q_hyp = self._exp_map(q)
         k_hyp = self._exp_map(k)
-        dist = self._hyp_dist(q_hyp, k_hyp)  # (B, n, L, L)
+        dist = self._hyp_dist(q_hyp, k_hyp)  # (B, h, L, M)
         attn = F.softmax(-dist / math.sqrt(self.d_head), dim=-1)
         if mask is not None:
             attn = attn.masked_fill(mask == 0, 0.0)
-        out = torch.einsum('b h l m, b m h d -> b l h d', attn, v)
+        out = torch.einsum('b h l m, b h m d -> b l h d', attn, v)
         return self.out_proj(out.reshape(B, L, D))
 
     def _exp_map(self, x):
@@ -135,8 +135,8 @@ class HyperbolicAttention(nn.Module):
         return factor * x
 
     def _hyp_dist(self, x, y):
-        num = 2 * torch.sum((x.unsqueeze(2) - y.unsqueeze(1))**2, dim=-1)
-        denom = (1 - torch.sum(x**2, dim=-1).unsqueeze(2)) * (1 - torch.sum(y**2, dim=-1).unsqueeze(1))
+        num = 2 * torch.sum((x.unsqueeze(3) - y.unsqueeze(2))**2, dim=-1)
+        denom = (1 - torch.sum(x**2, dim=-1).unsqueeze(3)) * (1 - torch.sum(y**2, dim=-1).unsqueeze(2))
         return torch.acosh(1 + num / (denom + 1e-8))
 
 # ---------- FNO ----------
