@@ -33,17 +33,8 @@ class FALLTrainer:
     ):
         self.config = config
         if train_dataloader is None:
-            print("WARNING: No train_dataloader provided. Using DummyDataLoader for Colab testing.")
-            class DummyDataLoader:
-                def __iter__(self): return self
-                def __next__(self):
-                    return {
-                        "input_ids": torch.randint(0, config.vocab_size, (2, 256)),
-                        "labels": torch.randint(0, config.vocab_size, (2, 256))
-                    }
-            self.train_dataloader = DummyDataLoader()
-        else:
-            self.train_dataloader = train_dataloader
+            raise ValueError("train_dataloader must be provided! Dummy data is no longer accepted.")
+        self.train_dataloader = train_dataloader
             
         self.val_dataloader = val_dataloader
         self.total_steps = total_steps

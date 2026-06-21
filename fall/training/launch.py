@@ -27,8 +27,24 @@ def main():
     world_size = dist.get_world_size()
     torch.cuda.set_device(local_rank)
 
-    # Create dataloaders (placeholder — real implementation in data/ module)
-    train_dataloader = None  # Will be replaced by actual data pipeline
+    # Create dataloaders
+    from transformers import AutoTokenizer
+    from fall.data.dataset import FALLDataset
+    from torch.utils.data import DataLoader
+
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    
+    train_dataset = FALLDataset(
+        tokenizer=tokenizer,
+        data_dir=args.data_path,
+        seq_len=config.max_seq_len,
+        batch_size=1,
+        rank=global_rank,
+        world_size=world_size
+    )
+    
+    # We use batch_size=2 for the actual PyTorch DataLoader to stack the sequences
+    train_dataloader = DataLoader(train_dataset, batch_size=2)
     val_dataloader = None
 
     # Launch training
