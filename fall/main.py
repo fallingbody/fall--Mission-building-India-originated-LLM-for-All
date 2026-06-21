@@ -6,6 +6,10 @@ import sys
 import os
 import argparse
 import asyncio
+
+# Fix path resolution for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fall.sdk.cli import main as cli_main
 from fall.training.launch import main as train_main
 from fall.inference.api import start_server
