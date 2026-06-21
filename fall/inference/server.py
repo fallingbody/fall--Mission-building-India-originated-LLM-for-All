@@ -170,7 +170,7 @@ class FALLInferenceServer:
         with torch.no_grad():
             output_ids = self.model.generate(
                 input_ids=input_ids,
-                max_new_tokens=min(max_tokens, 100),
+                max_new_tokens=min(max_tokens, 10),
                 temperature=temperature
             )
             
