@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import time
 import logging
+import uvicorn
 
 from fall.inference.server import FALLInferenceServer, InferenceConfig
 
