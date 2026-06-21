@@ -1,0 +1,96 @@
+version: '3.9'
+
+x-fall-base: &fall-base
+  image: fall:latest
+  runtime: nvidia
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+    - FALL_CONFIG=/etc/fall/config.yaml
+  volumes:
+    - ./config:/etc/fall
+    - ./models:/models
+    - ./data:/data
+    - ./logs:/var/log/fall
+  networks:
+    - fall-network
+
+services:
+  training:
+    <<: *fall-base
+    command: python -m fall.training.launch --config /etc/fall/fall_5t.yaml
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 8
+              capabilities: [gpu]
+    ports:
+      - "29500:29500"
+    volumes:
+      - ./checkpoints:/checkpoints
+
+  inference:
+    <<: *fall-base
+    command: python -m fall.inference.api
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 4
+              capabilities: [gpu]
+
+  agent:
+    <<: *fall-base
+    command: python -m fall.agent.runtime
+    depends_on:
+      - inference
+      - sandbox
+
+  sandbox:
+    <<: *fall-base
+    command: python -m fall.sandbox.manager
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: fall
+      POSTGRES_USER: fall
+      POSTGRES_PASSWORD: fall_secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+
+networks:
+  fall-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  grafana_data:
