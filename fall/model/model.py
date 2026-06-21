@@ -31,7 +31,7 @@ class FALLForCausalLM(nn.Module):
         return logits
 
     @torch.no_grad()
-    def generate(self, input_ids, max_new_tokens, temperature=1.0, top_k=50):
+    def generate(self, input_ids, max_new_tokens, temperature=1.0, top_k=50, repetition_penalty=1.2):
         """Generate sequence autoregressively."""
         self.eval()
         for _ in range(max_new_tokens):
@@ -41,6 +41,15 @@ class FALLForCausalLM(nn.Module):
             logits = self(idx_cond)
             # Only care about the last token
             logits = logits[:, -1, :]
+            
+            # Apply repetition penalty
+            if repetition_penalty != 1.0:
+                for i in range(logits.size(0)):
+                    for token_id in set(input_ids[i].tolist()):
+                        if logits[i, token_id] < 0:
+                            logits[i, token_id] *= repetition_penalty
+                        else:
+                            logits[i, token_id] /= repetition_penalty
             
             if temperature > 0:
                 logits = logits / temperature
