@@ -87,13 +87,18 @@ class MultiHeadLatentAttention(nn.Module):
 class SSDBlock(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.has_mamba = False
         try:
             from mamba_ssm import Mamba
             self.mamba = Mamba(d_model=config.d_model, d_state=config.d_state, d_conv=config.d_conv)
+            self.has_mamba = True
         except ImportError:
             pass # Fails gracefully if not using Mamba mode
+            
     def forward(self, x):
-        return self.mamba(x)
+        if self.has_mamba:
+            return self.mamba(x)
+        return torch.zeros_like(x)
 
 # ---------- Hyperbolic Attention ----------
 class HyperbolicAttention(nn.Module):
