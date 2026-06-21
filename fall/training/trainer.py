@@ -46,9 +46,10 @@ class FALLTrainer:
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.world_size = dist.get_world_size() if dist.is_initialized() else 1
 
-        # Initialize model
-        self.model = FALLForCausalLM(config).to(self.device_id)
-        self.model = apply_fsdp(self.model, self.device_id)
+        self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
+        self.model = FALLForCausalLM(config).to(self.device)
+        if dist.is_initialized():
+            self.model = apply_fsdp(self.model, self.device_id)
 
         # Optimizer
         self.optimizer = create_optimizer(self.model, config)
@@ -93,8 +94,8 @@ class FALLTrainer:
                 data_iter = iter(self.train_dataloader)
                 batch = next(data_iter)
 
-            input_ids = batch["input_ids"].to(self.device_id)
-            labels = batch["labels"].to(self.device_id)
+            input_ids = batch["input_ids"].to(self.device)
+            labels = batch["labels"].to(self.device)
 
             # Forward pass with FP8
             with self.fp8_context:

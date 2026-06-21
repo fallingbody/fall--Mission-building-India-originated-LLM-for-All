@@ -14,18 +14,28 @@ def main():
     parser.add_argument("--checkpoint-dir", type=str, default="./checkpoints")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--fp8", action="store_true", default=True)
+    parser.add_argument("--seq-len", type=int, default=256)
     args = parser.parse_args()
 
     # Load config
     from fall.model.config import FALLConfig
     config = FALLConfig()
 
+    config.max_seq_len = args.seq_len
+
     # Setup distributed
-    dist.init_process_group("nccl")
-    local_rank = int(os.environ["LOCAL_RANK"])
-    global_rank = dist.get_rank()
-    world_size = dist.get_world_size()
-    torch.cuda.set_device(local_rank)
+    if "LOCAL_RANK" in os.environ:
+        backend = "nccl" if torch.cuda.is_available() else "gloo"
+        dist.init_process_group(backend)
+        local_rank = int(os.environ["LOCAL_RANK"])
+        global_rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
+    else:
+        local_rank = 0
+        global_rank = 0
+        world_size = 1
 
     # Create dataloaders
     from transformers import AutoTokenizer
