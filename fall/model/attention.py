@@ -150,8 +150,8 @@ class FourierNeuralOperator(nn.Module):
         x_ft = torch.fft.rfft(x_padded, dim=1)
         x_ft_modes = x_ft[:, :self.n_modes, :]
         out_ft = torch.einsum('b m d, d o m -> b d o', x_ft_modes, self.R)
-        out_ft_full = torch.zeros(B, x_ft.shape[1], D, dtype=torch.cfloat, device=x.device)
-        out_ft_full[:, :self.n_modes, :] = out_ft
+        out_ft_full = torch.zeros(B, D, x_ft.shape[2], dtype=torch.cfloat, device=x.device)
+        out_ft_full[:, :, :self.n_modes] = out_ft
         out_padded = torch.fft.irfft(out_ft_full, dim=1)
         out = out_padded[:, :L, :]
         return self.norm(x + self.linear(out) + out)
