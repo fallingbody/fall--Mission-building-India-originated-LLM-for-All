@@ -62,6 +62,23 @@ class FALLInferenceServer:
         if torch.cuda.is_available():
             self.model = self.model.cuda()
             
+        import glob
+        import os
+        checkpoints = sorted(
+            glob.glob("checkpoints/step_*.pt"), 
+            key=lambda x: int(os.path.basename(x).replace("step_", "").replace(".pt", "")), 
+            reverse=True
+        )
+        for ckpt in checkpoints:
+            try:
+                print(f"Attempting to load checkpoint: {ckpt}")
+                state = torch.load(ckpt, map_location="cuda" if torch.cuda.is_available() else "cpu")
+                self.model.load_state_dict(state["model"])
+                print(f"Successfully loaded {ckpt}!")
+                break
+            except Exception as e:
+                print(f"Failed to load {ckpt} (likely corrupted during save): {e}")
+            
         # Initialize Optimizer for Online Learning
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
         print("Model and Optimizer loaded successfully.")
