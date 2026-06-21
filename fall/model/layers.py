@@ -32,7 +32,7 @@ class FALLDecoderLayer(nn.Module):
             x = x + self.ssd(self.norm2(x))
         else:
             # MoE with gradient checkpointing
-            if self.training and getattr(self, '_checkpoint', True):
+            if self.training and getattr(self, '_checkpoint', True) and torch.is_grad_enabled():
                 x = x + checkpoint(self.moe, self.norm2(x))
             else:
                 x = x + self.moe(self.norm2(x))

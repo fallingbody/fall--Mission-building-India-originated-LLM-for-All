@@ -63,6 +63,6 @@ class AuxiliaryLossFreeMoE(nn.Module):
             avg = tokens_per_expert.mean()
             overloaded = tokens_per_expert > 1.5 * avg
             underloaded = tokens_per_expert < 0.5 * avg
-            self.expert_bias[overloaded] -= 0.01
-            self.expert_bias[underloaded] += 0.01
+            self.expert_bias.data[overloaded] -= 0.01
+            self.expert_bias.data[underloaded] += 0.01
         return out.view(B, L, D)
