@@ -1,0 +1,78 @@
+fall/
+├── model/
+│   ├── config.py
+│   ├── attention.py
+│   ├── moe.py
+│   ├── layers.py
+│   ├── model.py
+│   └── position.py
+├── training/
+│   ├── fsdp_wrap.py
+│   ├── optimizer.py
+│   ├── scheduler.py
+│   ├── fp8_utils.py
+│   ├── checkpoint.py
+│   ├── trainer.py
+│   └── launch.py
+├── data/
+│   ├── config.py
+│   ├── downloader.py
+│   ├── processor.py
+│   ├── dedup.py
+│   ├── tokenizer.py
+│   ├── dataset.py
+│   └── streaming.py
+├── inference/
+│   ├── server.py
+│   ├── api.py
+│   └── speculative.py
+├── agent/
+│   ├── runtime.py
+│   ├── mcts.py
+│   ├── prm.py
+│   ├── motivation.py
+│   └── task_gen.py
+├── sandbox/
+│   └── manager.py
+├── autoarchitect/
+│   ├── search.py
+│   └── causal_auditor.py
+├── federated/
+│   └── server.py
+├── symbolic/
+│   ├── engine.py
+│   └── lean_integration.py
+├── evaluation/
+│   └── benchmarks.py
+├── monitoring/
+│   └── dashboard.py
+├── profiling/
+│   ├── profiler.py
+│   └── benchmarks.py
+├── compression/
+│   ├── qat.py
+│   └── pruning.py
+├── deployment/
+│   ├── docker-compose.yml
+│   └── kubernetes/
+│       └── full-cluster.yaml
+├── sdk/
+│   ├── client.py
+│   └── cli.py
+├── docs/
+│   └── generator.py
+├── tests/
+│   ├── conftest.py
+│   ├── test_model.py
+│   ├── test_inference.py
+│   └── test_sandbox.py
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── deploy.yml
+├── main.py
+├── __init__.py
+├── setup.py
+├── requirements.txt
+├── Makefile
+└── Dockerfile

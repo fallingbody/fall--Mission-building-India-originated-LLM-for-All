@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fall-system
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: fall-training
+  namespace: fall-system
+spec:
+  serviceName: fall-training
+  replicas: 1024
+  selector:
+    matchLabels:
+      app: fall-training
+  template:
+    metadata:
+      labels:
+        app: fall-training
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: trainer
+        image: fall:latest
+        command: ["python", "-m", "fall.training.launch"]
+        resources:
+          limits:
+            nvidia.com/gpu: 8
+            memory: 512Gi
+            cpu: 128
+        env:
+        - name: MASTER_ADDR
+          value: "fall-training-0.fall-training"
+        - name: MASTER_PORT
+          value: "29500"
+        - name: WORLD_SIZE
+          value: "8192"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: checkpoints
+          mountPath: /checkpoints
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: fall-data-pvc
+      - name: checkpoints
+        persistentVolumeClaim:
+          claimName: fall-checkpoints-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fall-inference
+  namespace: fall-system
+spec:
+  selector:
+    app: fall-inference
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fall-inference
+  namespace: fall-system
+spec:
+  replicas: 64
+  selector:
+    matchLabels:
+      app: fall-inference
+  template:
+    metadata:
+      labels:
+        app: fall-inference
+    spec:
+      containers:
+      - name: inference
+        image: fall:latest
+        command: ["python", "-m", "fall.inference.api"]
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            nvidia.com/gpu: 4
+            memory: 256Gi
+        env:
+        - name: FALL_MODEL_PATH
+          value: "/models/fall_5t"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fall-evaluation
+  namespace: fall-system
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: eval
+            image: fall:latest
+            command: ["python", "-m", "fall.evaluation.benchmarks"]
+          restartPolicy: OnFailure
