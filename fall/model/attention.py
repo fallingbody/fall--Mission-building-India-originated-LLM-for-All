@@ -25,10 +25,11 @@ class MultiHeadLatentAttention(nn.Module):
 
         if config.use_differential_attn:
             self.lambda_init = 0.8
-            self.lambda_q1 = nn.Linear(config.d_model, config.n_heads, bias=False)
-            self.lambda_k1 = nn.Linear(config.d_model, config.n_heads, bias=False)
-            self.lambda_q2 = nn.Linear(config.d_model, config.n_heads, bias=False)
-            self.lambda_k2 = nn.Linear(config.d_model, config.n_heads, bias=False)
+            d_qk = self.d_qk_nope + self.d_qk_rope
+            self.lambda_q1 = nn.Linear(d_qk, config.n_heads, bias=False)
+            self.lambda_k1 = nn.Linear(d_qk, config.n_heads, bias=False)
+            self.lambda_q2 = nn.Linear(d_qk, config.n_heads, bias=False)
+            self.lambda_k2 = nn.Linear(d_qk, config.n_heads, bias=False)
         self.use_differential = config.use_differential_attn
 
     def forward(self, x, mask=None):
