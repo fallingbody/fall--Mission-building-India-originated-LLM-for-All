@@ -64,6 +64,7 @@ def main():
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
         checkpoint_dir=args.checkpoint_dir,
+        resume=args.resume,
     )
     trainer.train()
 

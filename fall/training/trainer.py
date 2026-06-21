@@ -30,6 +30,7 @@ class FALLTrainer:
         warmup_steps=5_000,
         save_every=1_000,
         log_every=100,
+        resume=False,
     ):
         self.config = config
         if train_dataloader is None:
@@ -71,12 +72,26 @@ class FALLTrainer:
         self.grad_accum_steps = 1  # Set based on micro-batch size
 
         # Resume from checkpoint
-        self.current_step = self._resume()
+        self.current_step = 0
+        if resume:
+            self.current_step = self._resume()
 
     def _resume(self):
         """Try to resume from latest checkpoint."""
-        # Simplified — in practice, use dcp.load with proper state dict
-        return 0
+        import glob
+        checkpoints = glob.glob(os.path.join(self.checkpointer.save_dir, "step_*.pt"))
+        if not checkpoints:
+            print("No checkpoints found to resume from.")
+            return 0
+        
+        # Find highest step
+        latest_ckpt = max(checkpoints, key=lambda x: int(os.path.basename(x).replace("step_", "").replace(".pt", "")))
+        print(f"Resuming from checkpoint: {latest_ckpt}")
+        
+        state = torch.load(latest_ckpt, map_location=self.device)
+        self.model.load_state_dict(state["model"])
+        self.optimizer.load_state_dict(state["optimizer"])
+        return state["step"] + 1
 
     def train(self):
         """Main training loop."""
