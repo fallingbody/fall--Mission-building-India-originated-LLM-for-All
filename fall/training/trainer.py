@@ -13,6 +13,7 @@ import os
 
 from fall.model.model import FALLForCausalLM
 from fall.model.config import FALLConfig
+from fall.training.fsdp_wrap import apply_fsdp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from fall.training.optimizer import create_optimizer
 from fall.training.scheduler import CosineWarmupScheduler
@@ -31,6 +32,7 @@ class FALLTrainer:
         save_every=1_000,
         log_every=100,
         resume=False,
+        use_fsdp=False,
     ):
         self.config = config
         if train_dataloader is None:
@@ -50,13 +52,16 @@ class FALLTrainer:
         self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
         self.model = FALLForCausalLM(config).to(self.device)
         if dist.is_initialized():
-            # DDP is much faster than FSDP for smaller models
-            self.model = DDP(
-                self.model, 
-                device_ids=[self.device_id], 
-                output_device=self.device_id, 
-                find_unused_parameters=True
-            )
+            if use_fsdp:
+                self.model = apply_fsdp(self.model, self.device_id)
+            else:
+                # DDP is much faster than FSDP for smaller models
+                self.model = DDP(
+                    self.model, 
+                    device_ids=[self.device_id], 
+                    output_device=self.device_id, 
+                    find_unused_parameters=True
+                )
 
         # Optimizer
         self.optimizer = create_optimizer(self.model, config)

@@ -23,14 +23,27 @@ class FALLDecoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(config.d_model)
         self.norm3 = nn.LayerNorm(config.d_model) if (self.use_hyper or self.use_fno) else None
 
-    def forward(self, x, mask=None, is_reasoning_mode=False):
-        x = x + self.attn(self.norm1(x), mask)
+    def forward(self, x, mask=None, is_reasoning_mode=False, is_gradient_checkpointing=False):
+        if is_gradient_checkpointing:
+            x = x + torch.utils.checkpoint.checkpoint(self.attn, self.norm1(x), mask, use_reentrant=False)
+        else:
+            x = x + self.attn(self.norm1(x), mask)
+            
         if self.use_hyper:
-            x = x + self.hyp(self.norm3(x), mask)
+            if is_gradient_checkpointing:
+                x = x + torch.utils.checkpoint.checkpoint(self.hyp, self.norm3(x), mask, use_reentrant=False)
+            else:
+                x = x + self.hyp(self.norm3(x), mask)
         if self.use_fno:
-            x = x + self.fno(self.norm3(x))
+            if is_gradient_checkpointing:
+                x = x + torch.utils.checkpoint.checkpoint(self.fno, self.norm3(x), use_reentrant=False)
+            else:
+                x = x + self.fno(self.norm3(x))
         if self.use_mamba:
-            x = x + self.ssd(self.norm2(x))
+            if is_gradient_checkpointing:
+                x = x + torch.utils.checkpoint.checkpoint(self.ssd, self.norm2(x), use_reentrant=False)
+            else:
+                x = x + self.ssd(self.norm2(x))
         else:
             # MoE without gradient checkpointing (prevents shape mismatch during backward)
             x = x + self.moe(self.norm2(x), is_reasoning_mode=is_reasoning_mode)

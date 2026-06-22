@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--fp8", action="store_true", default=True)
     parser.add_argument("--seq-len", type=int, default=256)
+    parser.add_argument("--fsdp", action="store_true", help="Enable Fully Sharded Data Parallel for training large models (1B+ parameters).")
     args = parser.parse_args()
 
     # Load config

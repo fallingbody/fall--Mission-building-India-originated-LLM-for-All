@@ -25,7 +25,12 @@ class FALLForCausalLM(nn.Module):
             attention_mask = torch.tril(torch.ones((L, L), device=x.device)).view(1, 1, L, L)
             
         for layer in self.layers:
-            x = layer(x, attention_mask, is_reasoning_mode=is_reasoning_mode)
+            x = layer(
+                x, 
+                attention_mask, 
+                is_reasoning_mode=is_reasoning_mode, 
+                is_gradient_checkpointing=getattr(self.config, "use_gradient_checkpointing", False) and self.training
+            )
         x = self.final_norm(x)
         logits = self.lm_head(x)
         return logits

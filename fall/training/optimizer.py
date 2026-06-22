@@ -34,10 +34,27 @@ def create_optimizer(model, config):
         {'params': other_params,  'lr': 1.5e-4},
     ]
 
-    return torch.optim.AdamW(
-        param_groups,
-        betas=(0.9, 0.95),
-        eps=1e-8,
-        weight_decay=0.1,
-        fused=False  # Disabled because FNO uses complex64 which isn't supported by fused kernel
-    )
+    # Try to import bitsandbytes for 8-bit optimizer
+    try:
+        import bitsandbytes as bnb
+        use_8bit = True
+        print("Using 8-bit AdamW optimizer.")
+    except ImportError:
+        use_8bit = False
+        print("bitsandbytes not found. Using standard 32-bit AdamW optimizer.")
+
+    if use_8bit:
+        return bnb.optim.AdamW8bit(
+            param_groups,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            weight_decay=0.1
+        )
+    else:
+        return torch.optim.AdamW(
+            param_groups,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            weight_decay=0.1,
+            fused=False  # Disabled because FNO uses complex64 which isn't supported by fused kernel
+        )
