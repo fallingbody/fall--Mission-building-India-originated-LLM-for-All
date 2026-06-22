@@ -202,7 +202,9 @@ class HyperbolicAttention(nn.Module):
     def _hyp_dist(self, x, y):
         num = 2 * torch.sum((x.unsqueeze(3) - y.unsqueeze(2))**2, dim=-1)
         denom = (1 - torch.sum(x**2, dim=-1).unsqueeze(3)) * (1 - torch.sum(y**2, dim=-1).unsqueeze(2))
-        return torch.acosh(1 + num / (denom + 1e-8))
+        arg = 1 + num / (denom + 1e-8)
+        arg = torch.clamp(arg, min=1.0 + 1e-7)
+        return torch.acosh(arg)
 
 # ---------- FNO ----------
 class FourierNeuralOperator(nn.Module):
@@ -216,12 +218,13 @@ class FourierNeuralOperator(nn.Module):
     def forward(self, x):
         B, L, D = x.shape
         L_pad = 2 ** math.ceil(math.log2(L))
-        x_padded = F.pad(x.transpose(1,2), (0, L_pad - L)).transpose(1,2)
+        # FFT requires float32 to prevent FP16 NaN overflows
+        x_padded = F.pad(x.transpose(1,2), (0, L_pad - L)).transpose(1,2).to(torch.float32)
         x_ft = torch.fft.rfft(x_padded, dim=1)
         x_ft_modes = x_ft[:, :self.n_modes, :]
-        out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, self.R)
+        out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, self.R.to(torch.cfloat))
         out_ft_full = torch.zeros(B, x_ft.shape[1], D, dtype=torch.cfloat, device=x.device)
         out_ft_full[:, :self.n_modes, :] = out_ft
-        out_padded = torch.fft.irfft(out_ft_full, dim=1)
+        out_padded = torch.fft.irfft(out_ft_full, dim=1).to(x.dtype)
         out = out_padded[:, :L, :]
         return self.norm(x + self.linear(out) + out)

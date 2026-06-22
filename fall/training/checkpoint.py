@@ -34,6 +34,31 @@ class AsyncCheckpointer:
             }
             checkpoint_path = os.path.join(self.save_dir, f"step_{step}.pt")
             torch.save(state, checkpoint_path)
+            
+        self._cleanup_old_checkpoints(step)
+
+    def _cleanup_old_checkpoints(self, current_step):
+        import glob
+        import shutil
+        
+        # Cleanup single-file checkpoints
+        for ckpt in glob.glob(os.path.join(self.save_dir, "step_*.pt")):
+            try:
+                ckpt_step = int(os.path.basename(ckpt).replace("step_", "").replace(".pt", ""))
+                if ckpt_step < current_step:
+                    os.remove(ckpt)
+            except ValueError:
+                pass
+                
+        # Cleanup distributed checkpoint directories
+        for ckpt_dir in glob.glob(os.path.join(self.save_dir, "step_*")):
+            if os.path.isdir(ckpt_dir):
+                try:
+                    ckpt_step = int(os.path.basename(ckpt_dir).replace("step_", ""))
+                    if ckpt_step < current_step:
+                        shutil.rmtree(ckpt_dir)
+                except ValueError:
+                    pass
 
     def _get_storage(self):
         from torch.distributed.checkpoint import FileSystemReader, FileSystemWriter
