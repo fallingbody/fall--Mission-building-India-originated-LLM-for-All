@@ -32,9 +32,6 @@ class FALLDecoderLayer(nn.Module):
         if self.use_mamba:
             x = x + self.ssd(self.norm2(x))
         else:
-            # MoE with gradient checkpointing
-            if self.training and getattr(self, '_checkpoint', True) and torch.is_grad_enabled():
-                x = x + checkpoint(self.moe, self.norm2(x), is_reasoning_mode=is_reasoning_mode, use_reentrant=False)
-            else:
-                x = x + self.moe(self.norm2(x), is_reasoning_mode=is_reasoning_mode)
+            # MoE without gradient checkpointing (prevents shape mismatch during backward)
+            x = x + self.moe(self.norm2(x), is_reasoning_mode=is_reasoning_mode)
         return x
