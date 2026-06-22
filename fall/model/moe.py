@@ -30,6 +30,7 @@ class MLPExpert(nn.Module):
 class AuxiliaryLossFreeMoE(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.n_experts = config.n_experts_per_layer
         self.top_k = config.n_active_experts
         self.router = nn.Linear(config.d_model, self.n_experts, bias=True)
@@ -43,10 +44,17 @@ class AuxiliaryLossFreeMoE(nn.Module):
             else:
                 self.experts.append(MLPExpert(config.d_model, config.d_ffn))
 
-    def forward(self, x):
+    def forward(self, x, is_reasoning_mode=False):
         B, L, D = x.shape
         x_flat = x.view(-1, D)
         logits = self.router(x_flat) + self.expert_bias
+        
+        # Apply Thought-Signature Bias
+        if is_reasoning_mode and hasattr(self.config, 'expert_domains') and self.config.use_thought_routing:
+            for i, domain in enumerate(self.config.expert_domains):
+                if domain == "reasoning":
+                    logits[:, i] += 10.0  # Massive boost to force reasoning expert activation
+                    
         probs = F.softmax(logits, dim=-1)
         topk_probs, topk_idx = torch.topk(probs, self.top_k, dim=-1)
         topk_probs = topk_probs / topk_probs.sum(dim=-1, keepdim=True)

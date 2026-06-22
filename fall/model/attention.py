@@ -4,7 +4,24 @@ import torch.nn.functional as F
 import math
 from fall.model.position import YaRNRoPE
 
-# ---------- MLA ----------
+class CSACompressionLayer(nn.Module):
+    def __init__(self, d_latent, compression_ratio=4):
+        super().__init__()
+        self.compression_ratio = compression_ratio
+        # Learned 1D convolution to compress 'compression_ratio' tokens into 1
+        self.compressor = nn.Conv1d(d_latent, d_latent, kernel_size=compression_ratio, stride=compression_ratio)
+        
+    def forward(self, c_kv):
+        # c_kv: (B, L, D) -> (B, D, L) -> Conv1d -> (B, D, L//4) -> (B, L//4, D)
+        B, L, D = c_kv.shape
+        remainder = L % self.compression_ratio
+        if remainder != 0:
+            pad_len = self.compression_ratio - remainder
+            c_kv = F.pad(c_kv, (0, 0, 0, pad_len))
+        c_kv_t = c_kv.transpose(1, 2)
+        c_kv_compressed = self.compressor(c_kv_t).transpose(1, 2)
+        return c_kv_compressed
+
 class MultiHeadLatentAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -23,6 +40,11 @@ class MultiHeadLatentAttention(nn.Module):
         self.rope = YaRNRoPE(self.d_qk_rope, config.max_seq_len, config.rope_base)
         self.out_proj = nn.Linear(config.n_heads * config.d_head, config.d_model, bias=False)
 
+        if hasattr(config, 'use_csa_attention') and config.use_csa_attention:
+            self.csa = CSACompressionLayer(self.d_latent, config.csa_compression_ratio)
+            self.csa_k_rope = CSACompressionLayer(config.n_heads * self.d_qk_rope, config.csa_compression_ratio)
+            self.swa_window = getattr(config, 'swa_window_size', 128)
+
         if config.use_differential_attn:
             self.lambda_init = 0.8
             d_qk = self.d_qk_nope + self.d_qk_rope
@@ -38,13 +60,31 @@ class MultiHeadLatentAttention(nn.Module):
 
         # KV latent
         c_kv = self.kv_compress(x)
-        k_nope = self.k_proj(c_kv).view(B, L, n, self.d_qk_nope)
-        v = self.v_proj(c_kv).view(B, L, n, self.d_head)
-
-        # Q
+        
         q_nope = self.q_proj_nope(x).view(B, L, n, self.d_qk_nope)
         q_rope = self.q_proj_rope(x).view(B, L, n, self.d_qk_rope)
-        k_rope = self.k_proj_rope(x).view(B, L, n, self.d_qk_rope)
+        k_rope = self.k_proj_rope(x)
+        
+        # Apply CSA and SWA compression
+        if hasattr(self, 'csa'):
+            if L > self.swa_window:
+                recent_c_kv = c_kv[:, -self.swa_window:, :]
+                older_c_kv = c_kv[:, :-self.swa_window, :]
+                c_kv_final = torch.cat([self.csa(older_c_kv), recent_c_kv], dim=1)
+                
+                recent_k_rope = k_rope[:, -self.swa_window:, :]
+                older_k_rope = k_rope[:, :-self.swa_window, :]
+                k_rope_final = torch.cat([self.csa_k_rope(older_k_rope), recent_k_rope], dim=1)
+            else:
+                c_kv_final = c_kv
+                k_rope_final = k_rope
+        else:
+            c_kv_final = c_kv
+            k_rope_final = k_rope
+
+        k_nope = self.k_proj(c_kv_final).view(B, -1, n, self.d_qk_nope)
+        v = self.v_proj(c_kv_final).view(B, -1, n, self.d_head)
+        k_rope = k_rope_final.view(B, -1, n, self.d_qk_rope)
 
         # RoPE on positional parts
         q_rope = self.rope(q_rope.transpose(1,2)).transpose(1,2)
@@ -52,6 +92,10 @@ class MultiHeadLatentAttention(nn.Module):
 
         q = torch.cat([q_nope, q_rope], dim=-1)
         k = torch.cat([k_nope, k_rope], dim=-1)
+
+        # Truncate mask to match compressed K length if needed
+        if mask is not None and mask.size(-1) > k.size(1):
+            mask = mask[..., -k.size(1):]
 
         # Attention
         if self.use_differential:

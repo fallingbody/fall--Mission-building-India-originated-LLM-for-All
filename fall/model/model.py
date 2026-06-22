@@ -16,7 +16,7 @@ class FALLForCausalLM(nn.Module):
         # Tie weights
         self.lm_head.weight = self.embed.weight
 
-    def forward(self, input_ids, attention_mask=None):
+    def forward(self, input_ids, attention_mask=None, is_reasoning_mode=False):
         B, L = input_ids.shape
         x = self.embed(input_ids)
         
@@ -25,7 +25,7 @@ class FALLForCausalLM(nn.Module):
             attention_mask = torch.tril(torch.ones((L, L), device=x.device)).view(1, 1, L, L)
             
         for layer in self.layers:
-            x = layer(x, attention_mask)
+            x = layer(x, attention_mask, is_reasoning_mode=is_reasoning_mode)
         x = self.final_norm(x)
         logits = self.lm_head(x)
         return logits

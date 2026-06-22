@@ -23,7 +23,7 @@ class FALLDecoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(config.d_model)
         self.norm3 = nn.LayerNorm(config.d_model) if (self.use_hyper or self.use_fno) else None
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, is_reasoning_mode=False):
         x = x + self.attn(self.norm1(x), mask)
         if self.use_hyper:
             x = x + self.hyp(self.norm3(x), mask)
@@ -34,7 +34,7 @@ class FALLDecoderLayer(nn.Module):
         else:
             # MoE with gradient checkpointing
             if self.training and getattr(self, '_checkpoint', True) and torch.is_grad_enabled():
-                x = x + checkpoint(self.moe, self.norm2(x))
+                x = x + checkpoint(self.moe, self.norm2(x), is_reasoning_mode=is_reasoning_mode, use_reentrant=False)
             else:
-                x = x + self.moe(self.norm2(x))
+                x = x + self.moe(self.norm2(x), is_reasoning_mode=is_reasoning_mode)
         return x

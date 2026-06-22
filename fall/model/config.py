@@ -8,17 +8,32 @@ class FALLConfig:
     n_heads: int = 12
     d_head: int = 64
     d_ffn: int = 3072            # Expert hidden dim
+    
+    # MoE Configuration
     n_experts_per_layer: int = 8
     n_active_experts: int = 2
+    kan_expert_ratio: float = 0.2
+    
+    # Domain Specialization
+    expert_domains: tuple = ("general", "general", "code", "code", "math", "math", "reasoning", "reasoning")
+    use_thought_routing: bool = True
+    
+    # Advanced Attention Configuration
     d_latent_kv: int = 128       # MLA compression
-    d_state: int = 64            # Mamba state
-    d_conv: int = 4              # Mamba conv width
+    csa_compression_ratio: int = 4 # Compressed Sparse Attention
+    swa_window_size: int = 128   # Sliding Window Attention
+    use_csa_attention: bool = True
+    
+    # Mamba
+    d_state: int = 64            
+    d_conv: int = 4              
+    
+    # Core settings
     max_seq_len: int = 2048
     rope_base: float = 10000.0
     use_differential_attn: bool = True
     use_hyperbolic_layers: set = frozenset({4, 8})
     use_fno_layers: set = frozenset({2, 6, 10})
     use_mamba_layers: set = frozenset({3, 7, 11})
-    kan_expert_ratio: float = 0.2  # 20% KAN experts
     dropout: float = 0.1
     use_gradient_checkpointing: bool = True
