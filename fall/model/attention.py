@@ -221,10 +221,15 @@ class FourierNeuralOperator(nn.Module):
         # FFT requires float32 to prevent FP16 NaN overflows
         x_padded = F.pad(x.transpose(1,2), (0, L_pad - L)).transpose(1,2).to(torch.float32)
         x_ft = torch.fft.rfft(x_padded, dim=1)
-        x_ft_modes = x_ft[:, :self.n_modes, :]
-        out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, self.R.to(torch.cfloat))
+        
+        n_modes_act = min(self.n_modes, x_ft.size(1))
+        x_ft_modes = x_ft[:, :n_modes_act, :]
+        R_sliced = self.R[..., :n_modes_act].to(torch.cfloat)
+        
+        out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, R_sliced)
         out_ft_full = torch.zeros(B, x_ft.shape[1], D, dtype=torch.cfloat, device=x.device)
-        out_ft_full[:, :self.n_modes, :] = out_ft
+        out_ft_full[:, :n_modes_act, :] = out_ft
+        
         out_padded = torch.fft.irfft(out_ft_full, dim=1).to(x.dtype)
         out = out_padded[:, :L, :]
         return self.norm(x + self.linear(out) + out)
