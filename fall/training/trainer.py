@@ -149,13 +149,13 @@ class FALLTrainer:
                 total_loss = 0.0
 
             # Checkpoint
-            if step % self.save_every == 0 and self.rank == 0:
+            if step % self.save_every == 0:
                 self.checkpointer.save(step)
-                print(f"Checkpoint saved at step {step}")
+                if self.rank == 0:
+                    print(f"Checkpoint saved at step {step}")
 
         # Final save
-        if self.rank == 0:
-            self.checkpointer.save(self.total_steps)
+        self.checkpointer.save(self.total_steps)
 
     def validate(self):
         """Validation loop."""
