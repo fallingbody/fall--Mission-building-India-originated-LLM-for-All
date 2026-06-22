@@ -94,8 +94,24 @@ class MultiHeadLatentAttention(nn.Module):
         k = torch.cat([k_nope, k_rope], dim=-1)
 
         # Truncate mask to match compressed K length if needed
-        if mask is not None and mask.size(-1) > k.size(1):
-            mask = mask[..., -k.size(1):]
+        if mask is not None:
+            if k.size(1) < L and hasattr(self, 'csa'):
+                M = k.size(1)
+                swa = self.swa_window
+                c_ratio = self.csa.compression_ratio
+                num_compressed = M - swa if M > swa else 0
+                
+                i_idx = torch.arange(L, device=q.device).unsqueeze(1)
+                j_idx = torch.arange(M, device=q.device).unsqueeze(0)
+                
+                orig_j = torch.where(
+                    j_idx < num_compressed,
+                    j_idx * c_ratio,
+                    (j_idx - num_compressed) + (L - swa)
+                )
+                mask = (i_idx >= orig_j).float().view(1, 1, L, M)
+            elif mask.size(-1) > k.size(1):
+                mask = mask[..., -k.size(1):]
 
         # Attention
         if self.use_differential:
