@@ -74,13 +74,11 @@ class FALLTrainer:
             self.model, self.optimizer, checkpoint_dir, save_every, self.world_size
         )
 
-        # Mixed precision fallback for Colab/Kaggle
+        # Mixed precision: use autocast for forward pass, no GradScaler needed
+        # (model is natively float16, GradScaler only works with float32 weights)
         self.fp8_context = get_fp8_context(enabled=True)
         if type(self.fp8_context).__name__ == "nullcontext":
             self.fp8_context = torch.autocast(device_type="cuda", dtype=torch.float16)
-            
-        # GradScaler to prevent Loss explosions in FP16
-        self.scaler = torch.cuda.amp.GradScaler()
 
         # Gradient accumulation
         self.grad_accum_steps = 1  # Set based on micro-batch size
@@ -129,7 +127,7 @@ class FALLTrainer:
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)
 
-            # Forward pass with FP8
+            # Forward pass
             with self.fp8_context:
                 logits = self.model(input_ids)
                 # Shift for next-token prediction
@@ -140,17 +138,14 @@ class FALLTrainer:
                     shift_labels.view(-1),
                 )
 
-            # Backward with scaling to prevent FP16 NaN/Explosion
-            self.scaler.scale(loss).backward()
+            # Backward
+            loss.backward()
 
-            # Gradient clipping
-            self.scaler.unscale_(self.optimizer)
+            # Gradient clipping (prevents explosions without needing GradScaler)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             # Step
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            
+            self.optimizer.step()
             self.scheduler.step(step)
             self.optimizer.zero_grad()
 
