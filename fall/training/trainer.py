@@ -90,7 +90,10 @@ class FALLTrainer:
         
         state = torch.load(latest_ckpt, map_location=self.device)
         self.model.load_state_dict(state["model"])
-        self.optimizer.load_state_dict(state["optimizer"])
+        if "optimizer" in state:
+            self.optimizer.load_state_dict(state["optimizer"])
+        else:
+            print("No optimizer state found in checkpoint. Starting with fresh optimizer.")
         return state["step"] + 1
 
     def train(self):

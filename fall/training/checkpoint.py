@@ -30,7 +30,6 @@ class AsyncCheckpointer:
         else:
             state = {
                 "model": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
                 "step": step,
             }
             checkpoint_path = os.path.join(self.save_dir, f"step_{step}.pt")
