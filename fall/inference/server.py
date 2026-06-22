@@ -64,8 +64,12 @@ class FALLInferenceServer:
             
         import glob
         import os
+        
+        # Search both local directory and Kaggle's persistent directory
+        all_ckpts = glob.glob("checkpoints/step_*.pt") + glob.glob("/kaggle/working/checkpoints/step_*.pt")
+        
         checkpoints = sorted(
-            glob.glob("checkpoints/step_*.pt"), 
+            all_ckpts, 
             key=lambda x: int(os.path.basename(x).replace("step_", "").replace(".pt", "")), 
             reverse=True
         )
