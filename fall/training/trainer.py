@@ -51,9 +51,10 @@ class FALLTrainer:
 
         self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
         
-        # OOM Killer bypass: Initialize directly in 16-bit to save 50% System RAM (12GB instead of 24GB)
+        # OOM Killer bypass: Initialize directly in 16-bit to save 50% System RAM
+        # T4 GPUs only support native float16, NOT bfloat16
         old_dtype = torch.get_default_dtype()
-        torch.set_default_dtype(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+        torch.set_default_dtype(torch.float16)
         
         self.model = FALLForCausalLM(config).to(self.device)
         
