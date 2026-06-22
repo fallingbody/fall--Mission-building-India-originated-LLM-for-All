@@ -208,10 +208,13 @@ class HyperbolicAttention(nn.Module):
 
 # ---------- FNO ----------
 class FourierNeuralOperator(nn.Module):
+    # Replaces QKV self-attention with spectral convolution
     def __init__(self, d_model, n_modes=64):
         super().__init__()
+        self.d_model = d_model
         self.n_modes = n_modes
-        self.R = nn.Parameter(torch.randn(d_model, d_model, n_modes, dtype=torch.cfloat) * 0.02)
+        # FSDP does not support complex parameters, so store as real (..., 2) and view as complex in forward
+        self.R = nn.Parameter(torch.randn(d_model, d_model, n_modes, 2) * 0.02)
         self.linear = nn.Linear(d_model, d_model)
         self.norm = nn.LayerNorm(d_model)
 
@@ -224,7 +227,10 @@ class FourierNeuralOperator(nn.Module):
         
         n_modes_act = min(self.n_modes, x_ft.size(1))
         x_ft_modes = x_ft[:, :n_modes_act, :]
-        R_sliced = self.R[..., :n_modes_act].to(torch.cfloat)
+        
+        # Reconstruct complex weights on the fly
+        R_complex = torch.view_as_complex(self.R)
+        R_sliced = R_complex[..., :n_modes_act]
         
         out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, R_sliced)
         out_ft_full = torch.zeros(B, x_ft.shape[1], D, dtype=torch.cfloat, device=x.device)
