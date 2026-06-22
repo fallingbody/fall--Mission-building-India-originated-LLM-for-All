@@ -172,7 +172,7 @@ class HyperbolicAttention(nn.Module):
         self.d_model = config.d_model
         self.n_heads = 4
         self.d_head = config.d_model // self.n_heads
-        self.curvature = nn.Parameter(torch.tensor(-1.0))
+        self.curvature = nn.Parameter(torch.tensor([1.0]))
         self.q_proj = nn.Linear(config.d_model, config.d_model)
         self.k_proj = nn.Linear(config.d_model, config.d_model)
         self.v_proj = nn.Linear(config.d_model, config.d_model)
