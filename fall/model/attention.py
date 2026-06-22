@@ -228,11 +228,17 @@ class FourierNeuralOperator(nn.Module):
         n_modes_act = min(self.n_modes, x_ft.size(1))
         x_ft_modes = x_ft[:, :n_modes_act, :]
         
-        # Reconstruct complex weights on the fly
-        R_complex = torch.view_as_complex(self.R.to(torch.float32))
-        R_sliced = R_complex[..., :n_modes_act]
+        # Calculate complex multiplication manually in 16-bit to avoid massive 2.14 GB float32 casting spike
+        x_real = x_ft_modes.real.to(self.R.dtype)
+        x_imag = x_ft_modes.imag.to(self.R.dtype)
         
-        out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, R_sliced)
+        R_real = self.R[..., :n_modes_act, 0]
+        R_imag = self.R[..., :n_modes_act, 1]
+        
+        out_real = torch.einsum('b m d, d o m -> b m o', x_real, R_real) - torch.einsum('b m d, d o m -> b m o', x_imag, R_imag)
+        out_imag = torch.einsum('b m d, d o m -> b m o', x_real, R_imag) + torch.einsum('b m d, d o m -> b m o', x_imag, R_real)
+        
+        out_ft = torch.complex(out_real.to(torch.float32), out_imag.to(torch.float32))
         out_ft_full = torch.zeros(B, x_ft.shape[1], D, dtype=torch.cfloat, device=x.device)
         out_ft_full[:, :n_modes_act, :] = out_ft
         
