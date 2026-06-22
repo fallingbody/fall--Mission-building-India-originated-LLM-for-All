@@ -18,7 +18,7 @@ class FALLDecoderLayer(nn.Module):
             self.hyp = HyperbolicAttention(config)
         self.use_fno = layer_idx in config.use_fno_layers
         if self.use_fno:
-            self.fno = FourierNeuralOperator(config.d_model)
+            self.fno = FourierNeuralOperator(config.d_model, n_modes=getattr(config, 'fno_n_modes', 16))
         self.norm1 = nn.LayerNorm(config.d_model)
         self.norm2 = nn.LayerNorm(config.d_model)
         self.norm3 = nn.LayerNorm(config.d_model) if (self.use_hyper or self.use_fno) else None

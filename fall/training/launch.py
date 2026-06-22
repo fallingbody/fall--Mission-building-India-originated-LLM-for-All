@@ -56,8 +56,8 @@ def main():
         world_size=world_size
     )
     
-    # We use batch_size=2 for the actual PyTorch DataLoader to stack the sequences
-    train_dataloader = DataLoader(train_dataset, batch_size=2)
+    # batch_size=1 to minimize activation memory for large models
+    train_dataloader = DataLoader(train_dataset, batch_size=1)
     val_dataloader = None
 
     # Launch training
