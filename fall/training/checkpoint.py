@@ -21,12 +21,17 @@ class AsyncCheckpointer:
     def save(self, step):
         """Synchronous save (for critical checkpoints)."""
         if dist.is_initialized():
-            state = {
-                "model": get_model_state_dict(self.model),
-                "optimizer": get_optimizer_state_dict(self.model, self.optimizer),
-                "step": torch.tensor(step),
-            }
-            dcp.save(state, checkpoint_id=f"step_{step}", storage_writer=self._get_storage())
+            if dist.get_rank() == 0:
+                # Save DDP unwrapped model
+                model_state = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
+                state = {
+                    "model": model_state,
+                    "step": step,
+                }
+                checkpoint_path = os.path.join(self.save_dir, f"step_{step}.pt")
+                torch.save(state, checkpoint_path)
+            # DDP requires a barrier so other ranks wait until save is done
+            dist.barrier()
         else:
             state = {
                 "model": self.model.state_dict(),

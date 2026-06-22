@@ -13,7 +13,7 @@ import os
 
 from fall.model.model import FALLForCausalLM
 from fall.model.config import FALLConfig
-from fall.training.fsdp_wrap import apply_fsdp
+from torch.nn.parallel import DistributedDataParallel as DDP
 from fall.training.optimizer import create_optimizer
 from fall.training.scheduler import CosineWarmupScheduler
 from fall.training.fp8_utils import get_fp8_context
@@ -50,7 +50,13 @@ class FALLTrainer:
         self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
         self.model = FALLForCausalLM(config).to(self.device)
         if dist.is_initialized():
-            self.model = apply_fsdp(self.model, self.device_id)
+            # DDP is much faster than FSDP for smaller models
+            self.model = DDP(
+                self.model, 
+                device_ids=[self.device_id], 
+                output_device=self.device_id, 
+                find_unused_parameters=True
+            )
 
         # Optimizer
         self.optimizer = create_optimizer(self.model, config)
@@ -63,10 +69,13 @@ class FALLTrainer:
             self.model, self.optimizer, checkpoint_dir, save_every, self.world_size
         )
 
-        # Mixed precision fallback for Colab
+        # Mixed precision fallback for Colab/Kaggle
         self.fp8_context = get_fp8_context(enabled=True)
         if type(self.fp8_context).__name__ == "nullcontext":
             self.fp8_context = torch.autocast(device_type="cuda", dtype=torch.float16)
+            
+        # GradScaler to prevent Loss explosions in FP16
+        self.scaler = torch.cuda.amp.GradScaler()
 
         # Gradient accumulation
         self.grad_accum_steps = 1  # Set based on micro-batch size
@@ -126,14 +135,17 @@ class FALLTrainer:
                     shift_labels.view(-1),
                 )
 
-            # Backward
-            loss.backward()
+            # Backward with scaling to prevent FP16 NaN/Explosion
+            self.scaler.scale(loss).backward()
 
             # Gradient clipping
+            self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             # Step
-            self.optimizer.step()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            
             self.scheduler.step(step)
             self.optimizer.zero_grad()
 
