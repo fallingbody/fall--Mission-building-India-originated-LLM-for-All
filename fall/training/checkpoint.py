@@ -21,9 +21,18 @@ class AsyncCheckpointer:
     def save(self, step):
         """Synchronous save (for critical checkpoints)."""
         if dist.is_initialized():
-            if dist.get_rank() == 0:
-                # Save DDP unwrapped model
+            # Use FSDP context to rebuild the scattered shards into one CPU tensor
+            from torch.distributed.fsdp import FullStateDictConfig
+            from torch.distributed.fsdp import StateDictType
+            
+            if isinstance(self.model, FSDP):
+                save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+                with FSDP.state_dict_type(self.model, StateDictType.FULL_STATE_DICT, save_policy):
+                    model_state = self.model.state_dict()
+            else:
                 model_state = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
+                
+            if dist.get_rank() == 0:
                 state = {
                     "model": model_state,
                     "step": step,

@@ -52,16 +52,8 @@ class FALLTrainer:
         self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
         self.model = FALLForCausalLM(config).to(self.device)
         if dist.is_initialized():
-            if use_fsdp:
-                self.model = apply_fsdp(self.model, self.device_id)
-            else:
-                # DDP is much faster than FSDP for smaller models
-                self.model = DDP(
-                    self.model, 
-                    device_ids=[self.device_id], 
-                    output_device=self.device_id, 
-                    find_unused_parameters=True
-                )
+            # FSDP hardcoded for 3 Billion parameter scale
+            self.model = apply_fsdp(self.model, self.device_id)
 
         # Optimizer
         self.optimizer = create_optimizer(self.model, config)
