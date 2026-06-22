@@ -50,7 +50,14 @@ class FALLTrainer:
         self.world_size = dist.get_world_size() if dist.is_initialized() else 1
 
         self.device = torch.device(f"cuda:{self.device_id}" if torch.cuda.is_available() else "cpu")
+        
+        # OOM Killer bypass: Initialize directly in 16-bit to save 50% System RAM (12GB instead of 24GB)
+        old_dtype = torch.get_default_dtype()
+        torch.set_default_dtype(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+        
         self.model = FALLForCausalLM(config).to(self.device)
+        
+        torch.set_default_dtype(old_dtype)
         if dist.is_initialized():
             # FSDP hardcoded for 3 Billion parameter scale
             self.model = apply_fsdp(self.model, self.device_id)

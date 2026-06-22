@@ -229,7 +229,7 @@ class FourierNeuralOperator(nn.Module):
         x_ft_modes = x_ft[:, :n_modes_act, :]
         
         # Reconstruct complex weights on the fly
-        R_complex = torch.view_as_complex(self.R)
+        R_complex = torch.view_as_complex(self.R.to(torch.float32))
         R_sliced = R_complex[..., :n_modes_act]
         
         out_ft = torch.einsum('b m d, d o m -> b m o', x_ft_modes, R_sliced)
