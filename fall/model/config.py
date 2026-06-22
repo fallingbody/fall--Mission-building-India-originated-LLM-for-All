@@ -3,11 +3,11 @@ from dataclasses import dataclass
 @dataclass
 class FALLConfig:
     vocab_size: int = 50257
-    d_model: int = 768
-    n_layers: int = 12
-    n_heads: int = 12
-    d_head: int = 64
-    d_ffn: int = 3072            # Expert hidden dim
+    d_model: int = 2048
+    n_layers: int = 16
+    n_heads: int = 16
+    d_head: int = 128
+    d_ffn: int = 5120            # Expert hidden dim
     
     # MoE Configuration
     n_experts_per_layer: int = 8
