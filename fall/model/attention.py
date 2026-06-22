@@ -116,8 +116,13 @@ class MultiHeadLatentAttention(nn.Module):
         # Attention map 1
         attn1 = torch.einsum('b l n d, b m n d -> b n l m', q, k) * scale
         # Attention map 2 with learned gating
-        lambda1 = torch.sigmoid(self.lambda_q1(q) + self.lambda_k1(k)).mean(dim=(1,2)).unsqueeze(1).unsqueeze(-1)
-        lambda2 = torch.sigmoid(self.lambda_q2(q) + self.lambda_k2(k)).mean(dim=(1,2)).unsqueeze(1).unsqueeze(-1)
+        mean_q1 = self.lambda_q1(q).mean(dim=1)
+        mean_k1 = self.lambda_k1(k).mean(dim=1)
+        lambda1 = torch.sigmoid(mean_q1 + mean_k1).mean(dim=1).unsqueeze(1).unsqueeze(-1)
+        
+        mean_q2 = self.lambda_q2(q).mean(dim=1)
+        mean_k2 = self.lambda_k2(k).mean(dim=1)
+        lambda2 = torch.sigmoid(mean_q2 + mean_k2).mean(dim=1).unsqueeze(1).unsqueeze(-1)
         attn2 = torch.einsum('b l n d, b m n d -> b n l m', q * lambda1, k * lambda2) * scale
         attn = attn1 - self.lambda_init * attn2
         if mask is not None:
