@@ -10,7 +10,8 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="fall_5t.yaml")
-    parser.add_argument("--data-path", type=str, required=True)
+    parser.add_argument("--dataset-name", type=str, default="wikitext")
+    parser.add_argument("--dataset-config", type=str, default="wikitext-103-raw-v1")
     parser.add_argument("--checkpoint-dir", type=str, default="./checkpoints")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--fp8", action="store_true", default=True)
@@ -46,7 +47,8 @@ def main():
     
     train_dataset = FALLDataset(
         tokenizer=tokenizer,
-        data_dir=args.data_path,
+        dataset_name=args.dataset_name,
+        dataset_config=args.dataset_config,
         seq_len=config.max_seq_len,
         batch_size=1,
         rank=global_rank,
